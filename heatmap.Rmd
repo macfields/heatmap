@@ -1,0 +1,63 @@
+---
+title: "heatmap"
+author: "Maclaine Fields"
+date: "11/1/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(devtools)
+library(datavolley)
+library(tidyverse)
+library(knitr)
+library(stringr)
+```
+
+```{r}
+x <- read_dv("data/BC-PRIN.dvw", insert_technical_timeouts=FALSE)
+summary(x)
+serve_idx <- find_serves(plays(x))
+table(plays(x)$team[serve_idx])
+
+plays <- plays(x)
+
+attack_rate <- plays %>% filter(skill == "Attack") %>% 
+    group_by(team, start_zone) %>% summarize(n_attacks=n()) %>%
+    mutate(rate=n_attacks/sum(n_attacks)) %>% ungroup
+
+attack_rate <- cbind(attack_rate, dv_xy(attack_rate$start_zone, end="lower"))
+
+attack_rate %>% 
+  ggplot(aes(x=as.factor(start_zone), y = rate, fill = team))+geom_col(position = "Dodge") 
+
+attackrateshiny <- 
+  attack_rate %>% 
+  select(team, start_zone, rate) %>% 
+  spread(start_zone,rate)
+
+tm2i <- attack_rate$team==teams(x)[2]
+attack_rate[tm2i, c("x", "y")] <- dv_flip_xy(attack_rate[tm2i, c("x", "y")])
+
+ggplot(attack_rate, aes(x, y, fill=rate)) + geom_tile() + ggcourt(labels=teams(x)) +
+    scale_fill_gradient2(name="Attack rate")
+
+```
+
+```{r analyzing serving data}
+serves <- plays %>% filter(skill == "Serve") 
+
+serves %>% 
+  filter(evaluation_code == "=") %>% 
+  group_by(skill_type, serving_team) %>% 
+  count() %>% 
+  spread(serving_team, n)
+
+serves %>% 
+  filter(serving_team == "Princeton University") %>% 
+  group_by(evaluation) %>% 
+  count(sort = TRUE)
+
+```
+
+
